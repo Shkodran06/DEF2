@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Schichtplanung</title>
+<style>
+body { font-family: Arial; background:#f2f2f2; padding:20px }
+.box { background:#fff; padding:15px; margin-bottom:15px; border-radius:6px }
+button { padding:6px 12px; cursor:pointer; margin-right:5px }
+.role-box { border:1px solid #ccc; padding:10px; margin-bottom:10px; background:#f9f9f9; border-radius:6px }
+.adminPanel { display:none; border:1px solid #ccc; padding:10px; margin-top:10px }
+input[type=text] { width:120px; margin-right:5px }
+h3 { margin-bottom:5px; }
+.mini { color:#d35400; font-weight:bold }
+</style>
+</head>
+<body>
+
+<h2>Schichtplanung
+<button onclick="adminLogin()">Admin</button>
+<span id="welcome"></span>
+</h2>
+
+<div class="box">
+<b>Mitarbeiter anwesend – NORMAL</b><br>
+<div id="workerListNormal"></div>
+</div>
+
+<div class="box">
+<b>Mitarbeiter anwesend – MINI</b><br>
+<div id="workerListMini"></div>
+</div>
+
+<div class="box">
+<b>Anzahl der Rotationen</b><br>
+<select id="rotations">
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+</select>
+</div>
+
+<div class="box">
+<button onclick="generate()">Planung generieren</button>
+</div>
+
+<div id="planArea"></div>
+
+<div class="adminPanel" id="adminPanel">
+<h3>Adminbereich</h3>
+<div id="adminWorkers"></div>
+<button onclick="addWorker()">➕ Hinzufügen</button>
+</div>
+
+<script>
+/* ===== ADMINS ===== */
+const ADMINS = [
+  { user:"Shkodran", pass:"Shkodran2006@" },
+  { user:"Benjamin", pass:"B1enjamiN2026@" },
+  { user:"Hamed", pass:"Ham00ed@26" },
+  { user:"Sandro", pass:"Sandro2026@@" }
+];
+
+/* ===== WORKERS ===== */
+let workers = JSON.parse(localStorage.getItem("workers")) || [
+  {id:1,name:"Moritz",rating:2,mini:false,lastRole:null},
+  {id:2,name:"Eduard",rating:2,mini:false,lastRole:null},
+  {id:3,name:"Hassan",rating:2,mini:false,lastRole:null}
+];
+
+function saveWorkers(){
+  localStorage.setItem("workers", JSON.stringify(workers));
+}
+
+const wlNormal = document.getElementById("workerListNormal");
+const wlMini = document.getElementById("workerListMini");
+const adminWL = document.getElementById("adminWorkers");
+let adminPanelVisible = false;
+
+/* ===== RENDER ===== */
+function renderWorkers(){
+  wlNormal.innerHTML = "";
+  wlMini.innerHTML = "";
+
+  workers.forEach(w=>{
+    const target = w.mini ? wlMini : wlNormal;
+    target.innerHTML += `
+      <label>
+        <input type="checkbox" value="${w.id}">
+        ${w.name} (Lvl ${w.rating}) ${w.mini ? '<span class="mini">MINI</span>' : ''}
+      </label><br>
+    `;
+  });
+
+  if(adminPanelVisible){
+    adminWL.innerHTML="";
+    workers.forEach(w=>{
+      adminWL.innerHTML += `
+        <div style="margin-bottom:6px">
+          <input type="text" id="w${w.id}" value="${w.name}">
+          <select onchange="setRating(${w.id},this.value)">
+            <option value="1" ${w.rating==1?"selected":""}>1</option>
+            <option value="2" ${w.rating==2?"selected":""}>2</option>
+            <option value="3" ${w.rating==3?"selected":""}>3</option>
+          </select>
+          <label>
+            MINI <input type="checkbox" ${w.mini?"checked":""}
+            onchange="setMini(${w.id},this.checked)">
+          </label>
+          <button onclick="saveWorker(${w.id})">✏️</button>
+          <button onclick="deleteWorker(${w.id})">➖</button>
+        </div>
+      `;
+    });
+  }
+}
+
+/* ===== ADMIN ===== */
+function adminLogin(){
+  const u = prompt("Benutzername:");
+  const p = prompt("Passwort:");
+  const ok = ADMINS.find(a => a.user === u && a.pass === p);
+  if(!ok){
+    alert("Zugang verweigert");
+    return;
+  }
+  document.getElementById("welcome").innerText = "Hallo " + u;
+  adminPanelVisible = true;
+  document.getElementById("adminPanel").style.display = "block";
+  renderWorkers();
+}
+
+function addWorker(){
+  const name = prompt("Name:");
+  if(!name) return;
+  const id = workers.length ? Math.max(...workers.map(w=>w.id))+1 : 1;
+  workers.push({id,name,rating:2,mini:false,lastRole:null});
+  saveWorkers(); renderWorkers();
+}
+
+function saveWorker(id){
+  workers.find(w=>w.id===id).name = document.getElementById("w"+id).value;
+  saveWorkers(); renderWorkers();
+}
+
+function deleteWorker(id){
+  workers = workers.filter(w=>w.id!==id);
+  saveWorkers(); renderWorkers();
+}
+
+function setRating(id,val){
+  workers.find(w=>w.id===id).rating = parseInt(val);
+  saveWorkers();
+}
+
+function setMini(id,val){
+  workers.find(w=>w.id===id).mini = val;
+  saveWorkers(); renderWorkers();
+}
+
+/* ===== PAIRS 3–1 ===== */
+function createBalancedPairs(list){
+  let l1=list.filter(w=>w.rating==1);
+  let l2=list.filter(w=>w.rating==2);
+  let l3=list.filter(w=>w.rating==3);
+  let res=[];
+
+  while(l3.length && l1.length)
+    res.push(l3.shift(), l1.shift());
+
+  while(l2.length>=2)
+    res.push(l2.shift(), l2.shift());
+
+  let rest=[...l1,...l2,...l3];
+  while(rest.length>=2)
+    res.push(rest.shift(), rest.shift());
+
+  if(rest.length) res.push(rest[0]);
+  return res;
+}
+
+/* ===== GENERATE ===== */
+function generate(){
+  const selected = [
+    ...document.querySelectorAll("#workerListNormal input:checked"),
+    ...document.querySelectorAll("#workerListMini input:checked")
+  ].map(i => workers.find(w => w.id == i.value));
+
+  if(!selected.length){
+    alert("Bitte Mitarbeiter auswählen");
+    return;
+  }
+
+  const rot = parseInt(document.getElementById("rotations").value);
+  const planArea = document.getElementById("planArea");
+  planArea.innerHTML = "";
+
+  for(let r=1;r<=rot;r++){
+    let avail = selected.map(w=>({...w}));
+    avail.sort(()=>Math.random()-0.5);
+
+    const rotDiv = document.createElement("div");
+    rotDiv.className = "role-box";
+    rotDiv.innerHTML = `<h3>ROTATION ${r}</h3>`;
+    planArea.appendChild(rotDiv);
+
+    function assignRole(count, role){
+      let pool = role==="Stammdaten"
+        ? avail.filter(w=>!w.mini)
+        : [...avail];
+
+      let assigned=[];
+      for(let i=0;i<count;i++){
+        if(!pool.length) break;
+        let p = pool.shift();
+        assigned.push(p);
+        avail = avail.filter(w=>w.id!==p.id);
+      }
+      return createBalancedPairs(assigned);
+    }
+
+    const tri = assignRole(4,"Triage");
+    rotDiv.innerHTML += "<b>Triage:</b><br>";
+    tri.forEach((w,i)=>rotDiv.innerHTML+=`Pos ${i+1}: ${w.name}<br>`);
+
+    const band = assignRole(2,"Band");
+    rotDiv.innerHTML += "<br><b>Band:</b><br>";
+    band.forEach((w,i)=>rotDiv.innerHTML+=`Band ${i+1}: ${w.name}<br>`);
+
+    const stam = assignRole(2,"Stammdaten");
+    rotDiv.innerHTML += "<br><b>Stammdaten:</b><br>";
+    stam.forEach((w,i)=>rotDiv.innerHTML+=`Stamm ${i+1}: ${w.name}<br>`);
+
+    const midi = createBalancedPairs(avail);
+    rotDiv.innerHTML += "<br><b>MIDI:</b><br>";
+    midi.forEach((w,i)=>rotDiv.innerHTML+=`Midi ${i+1}: ${w.name}<br>`);
+  }
+}
+
+renderWorkers();
+</script>
+</body>
+</html>
