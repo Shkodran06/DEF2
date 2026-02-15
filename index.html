@@ -219,9 +219,19 @@ function generate(){
       return createBalancedPairs(assigned);
     }
 
-    const tri = assignRole(4,"Triage");
-    rotDiv.innerHTML += "<b>Triage:</b><br>";
-    tri.forEach((w,i)=>rotDiv.innerHTML+=`Pos ${i+1}: ${w.name}<br>`);
+   // ===== TRIAGE =====
+rotDiv.innerHTML += "<b>Triage:</b><br>";
+
+const triagePeople = assignRole(4, "Triage");
+
+// SSCC Druck (sempre il primo)
+rotDiv.innerHTML += `SSCC Druck: ${triagePeople[0]?.name || "-"}<br>`;
+
+// Separation 1–3
+for(let i = 1; i <= 3; i++){
+  rotDiv.innerHTML += `Separation ${i}: ${triagePeople[i]?.name || "-"}<br>`;
+}
+
 
     const band = assignRole(2,"Band");
     rotDiv.innerHTML += "<br><b>Band:</b><br>";
